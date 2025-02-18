@@ -15,7 +15,7 @@ API Response
 To install this package, run the following command in an existing strapi project:
 
 ```sh
-npm install strapi-location-field-plugin
+npm install strapi-location
 ```
 
 ## Usage
@@ -24,7 +24,7 @@ To enable the plugin, you'll need to include the following code in your Strapi p
 
 ```javascript
 module.exports = ({ env }) => ({
-	"location-field": {
+	"location-data": {
 		enabled: true,
 		config: {
 			fields: ["photo", "rating"], // optional
@@ -88,9 +88,3 @@ module.exports = [
 ];
 ```
 After installation and configuration, build the project with `npm run build` or `yarn build`
-
-
-### Additional Information
-- This plugin is not affiliated with Google in any way.
-
-To support, go to [https://www.buymeacoffee.com/raykeating](https://www.buymeacoffee.com/raykeating) 💜

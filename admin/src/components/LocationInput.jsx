@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Loader } from "@googlemaps/js-api-loader";
 import { NumberInput, Flex, Box } from "@strapi/design-system";
 import { Combobox } from "@strapi/design-system";
@@ -32,6 +32,9 @@ export default function Input({
   const [textValue, setTextValue] = useState(
     "" || (safeParseJSON(value)?.description || "")
   );
+  const [map, setMap] = useState(null);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
 
   const { get } = useFetchClient();
 
@@ -45,7 +48,7 @@ export default function Input({
     return { fields, autocompletionRequestOptions, googleMapsApiKey };
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     getConfigDetails().then((config) => {
       setApiKey(config.googleMapsApiKey);
       config.fields = config.fields || [];
@@ -57,7 +60,7 @@ export default function Input({
     });
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (apiKey) {
       const loader = new Loader({
         apiKey,
@@ -68,11 +71,41 @@ export default function Input({
     }
   }, [apiKey]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (fields && !fields.includes("geometry")) {
       fields.push("geometry");
     }
   }, [fields]);
+
+  useEffect(() => {
+    if (loader && mapRef.current) {
+      loader.load().then((google) => {
+        const parsedValue = safeParseJSON(value);
+        const initialPosition = parsedValue?.lat && parsedValue?.lng
+          ? { lat: parsedValue.lat, lng: parsedValue.lng }
+          : { lat: 34.0267405, lng: -118.7102279 }; // Default to Toronto
+
+        const mapInstance = new google.maps.Map(mapRef.current, {
+          center: initialPosition,
+          zoom: 10,
+        });
+        setMap(mapInstance);
+
+        const marker = new google.maps.Marker({
+          position: initialPosition,
+          map: mapInstance,
+          draggable: true,
+        });
+        markerRef.current = marker;
+
+        google.maps.event.addListener(marker, 'dragend', function () {
+          const position = marker.getPosition();
+          setCoordinates(position.lat(), "lat");
+          setCoordinates(position.lng(), "lng");
+        });
+      });
+    }
+  }, [loader, value]);
 
   const [predictions, setPredictions] = useState([]);
 
@@ -161,6 +194,14 @@ export default function Input({
                 type: attribute.type,
               },
             });
+
+            // Update map and marker position
+            const position = {
+              lat: selectedPrediction.details.geometry.location.lat(),
+              lng: selectedPrediction.details.geometry.location.lng(),
+            };
+            map.setCenter(position);
+            markerRef.current.setPosition(position);
           }
         );
       });
@@ -257,12 +298,13 @@ export default function Input({
           </Combobox>
         )}
       </Box>
+      <Box width="100%" height="400px" ref={mapRef} style={{ marginTop: '20px' }} />
       {parsedValue?.place_id === "custom_location" && (
         <Flex gap={2}>
           <NumberInput
             label="Latitude"
             name="latitude"
-            placeholder="Ex. 43.123456"
+            placeholder="Ex. 34.0267405"
             disabled={disabled}
             onValueChange={(e) => setCoordinates(e, "lat")}
             value={parsedValue?.lat || null}
@@ -271,7 +313,7 @@ export default function Input({
           <NumberInput
             label="Longitude"
             name="longitude"
-            placeholder="Ex. -79.123456"
+            placeholder="Ex. -118.7102279"
             disabled={disabled}
             onValueChange={(e) => setCoordinates(e, "lng")}
             value={parsedValue?.lng || null}
